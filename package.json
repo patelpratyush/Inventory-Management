@@ -9,7 +9,6 @@
     "lint": "next lint"
   },
   "dependencies": {
-<<<<<<< HEAD
     "@emotion/react": "^11.13.0",
     "@emotion/styled": "^11.13.0",
     "@mui/material": "^5.16.6",
@@ -17,8 +16,6 @@
     "firebase": "^10.12.4",
     "next": "14.2.5",
     "punycode": "^2.3.1",
-=======
->>>>>>> parent of 5d2a6ed (update)
     "react": "^18",
     "react-dom": "^18",
     "next": "14.2.5"
