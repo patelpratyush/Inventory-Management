@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { firestore } from "@/firebase";
 import { Box, Grid, Typography, Button, Modal, TextField, Card, CardContent, CardActions, Snackbar } from '@mui/material';
 import { collection, doc, getDocs, query, setDoc, deleteDoc, getDoc } from 'firebase/firestore';
+import { Analytics } from "@vercel/analytics/react"
 
 const style = {
   position: 'absolute',
