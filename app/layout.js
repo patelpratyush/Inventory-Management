@@ -4,7 +4,7 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata = {
-  title: "Inventory Management",
+  title: "Inventory Buddy",
   description: "Inventory management application that allows users to keep track of pantry items by adding or removing items and updating their quantities.",
 };
 
