@@ -12,7 +12,7 @@
 
 ## Project Structure
 
-    ```bash
+```bash
     .
     ├── README.md
     ├── app
@@ -29,7 +29,7 @@
     │   └── signup
     │       └── page.js
     ├── firebase.js
-    ```
+```
 
 ## Technologies Used
 
