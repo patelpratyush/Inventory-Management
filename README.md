@@ -98,13 +98,13 @@ To get a local copy up and running, follow these steps:
     http://localhost:3000
 ```
 
-### Usage
+## Usage
 
 - Sign In: Use your email and password to sign in.
 - Manage Pantry Items: Add new items, edit existing ones, or delete items.
 - Capture/Upload Images: Capture images directly from your device’s camera or upload them from your file system.
 
-### Contributing
+## Contributing
 
 1. Fork the repository.
 2. Create a new branch (`git checkout -b feature/your-feature`).
