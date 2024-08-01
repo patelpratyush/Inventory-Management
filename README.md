@@ -13,22 +13,22 @@
 ## Project Structure
 
 ```bash
-    .
-    ├── README.md
-    ├── app
-    │   ├── globals.css
-    │   ├── landingpage
-    │   │   └── page.js
-    │   ├── layout.js
-    │   ├── page.js
-    │   ├── pantry
-    │   │   └── page.js
-    │   ├── protectedRoute.js
-    │   ├── signin
-    │   │   └── page.js
-    │   └── signup
-    │       └── page.js
-    ├── firebase.js
+.
+├── README.md
+├── app
+│   ├── globals.css
+│   ├── landingpage
+│   │   └── page.js
+│   ├── layout.js
+│   ├── page.js
+│   ├── pantry
+│   │   └── page.js
+│   ├── protectedRoute.js
+│   ├── signin
+│   │   └── page.js
+│   └── signup
+│       └── page.js
+├── firebase.js
 ```
 
 ## Technologies Used
@@ -60,7 +60,7 @@ To get a local copy up and running, follow these steps:
 
 1. **Clone the repository:**
 
-```bash 
+```bash
     https://github.com/patelpratyush/Inventory-Management
 ```
 
@@ -99,11 +99,13 @@ To get a local copy up and running, follow these steps:
 ```
 
 ### Usage
+
 - Sign In: Use your email and password to sign in.
 - Manage Pantry Items: Add new items, edit existing ones, or delete items.
 - Capture/Upload Images: Capture images directly from your device’s camera or upload them from your file system.
 
 ### Contributing
+
 1. Fork the repository.
 2. Create a new branch (`git checkout -b feature/your-feature`).
 3. Commit your changes (`git commit -am 'Add new feature'`).
