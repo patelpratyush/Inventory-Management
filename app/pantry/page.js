@@ -1,13 +1,14 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { collection, getDocs, getDoc, setDoc, doc, deleteDoc } from 'firebase/firestore';
 import { signOut, onAuthStateChanged } from 'firebase/auth';
-import { firestore, auth } from '@/firebase';
+import { firestore, auth, storage } from '@/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import withAuth from '../protectedRoute';
 import { Container, Typography, Box, Button, Card, CardHeader, CardContent, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, IconButton, TextField, createTheme, ThemeProvider, Menu, MenuItem, Snackbar, CircularProgress } from '@mui/material';
-import { AddShoppingCart, Edit, Delete, Logout, AccountCircle } from '@mui/icons-material';
+import { AddShoppingCart, Edit, Delete, Logout, AccountCircle, CameraAlt, FileUpload } from '@mui/icons-material';
 import { styled } from '@mui/material/styles';
 
 const style = {
@@ -119,11 +120,19 @@ const Page = () => {
   const [newItemName, setNewItemName] = useState('');
   const [newItemQuantity, setNewItemQuantity] = useState('');
   const [editingItem, setEditingItem] = useState(null);
+  const [imageURL, setImageURL] = useState('');
+  const [capturing, setCapturing] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
   const [userEmail, setUserEmail] = useState('');
   const [userUid, setUserUid] = useState('');
   const [loading, setLoading] = useState(false);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const mediaStreamRef = useRef(null); // Reference to the media stream
+  const fileInputRef = useRef(null); // Reference to the file input
   const router = useRouter();
 
   useEffect(() => {
@@ -159,26 +168,40 @@ const Page = () => {
   }, [userUid]);
 
   const addItem = async (name, quantity, imageUrl = null) => {
-    if (userUid) {
-      const docRef = doc(firestore, `pantry-items-${userUid}`, name);
-      const docSnap = await getDoc(docRef);
-      if (docSnap.exists()) {
-        const { quantity: existingQuantity } = docSnap.data();
-        await setDoc(docRef, { quantity: existingQuantity + Number(quantity), imageUrl }, { merge: true });
-      } else {
-        await setDoc(docRef, { name, quantity: Number(quantity) || 1, imageUrl });
+    setLoading(true);
+    try {
+      if (userUid) {
+        const docRef = doc(firestore, `pantry-items-${userUid}`, name);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const { quantity: existingQuantity } = docSnap.data();
+          await setDoc(docRef, { quantity: existingQuantity + Number(quantity), imageUrl }, { merge: true });
+        } else {
+          await setDoc(docRef, { name, quantity: Number(quantity) || 1, imageUrl });
+        }
+        await updatePantry();
+        setNewItemName('');
+        setNewItemQuantity('');
+        setSnackbarOpen(true);
       }
-      await updatePantry();
-      setNewItemName('');
-      setNewItemQuantity('');
-      setSnackbarOpen(true);
+    } catch (error) {
+      console.error("Error adding item:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
   const deleteItem = async (id) => {
-    if (userUid) {
-      await deleteDoc(doc(firestore, `pantry-items-${userUid}`, id));
-      await updatePantry();
+    setLoading(true);
+    try {
+      if (userUid) {
+        await deleteDoc(doc(firestore, `pantry-items-${userUid}`, id));
+        await updatePantry();
+      }
+    } catch (error) {
+      console.error("Error deleting item:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -189,19 +212,104 @@ const Page = () => {
   };
 
   const editItem = async (id, name, quantity) => {
-    if (userUid) {
-      const docRef = doc(firestore, `pantry-items-${userUid}`, id);
-      await setDoc(docRef, { name, quantity: Number(quantity) || 1 }, { merge: true });
-      await updatePantry();
-      setEditingItem(null);
-      setNewItemName('');
-      setNewItemQuantity('');
+    setLoading(true);
+    try {
+      if (userUid) {
+        const docRef = doc(firestore, `pantry-items-${userUid}`, id);
+        await setDoc(docRef, { name, quantity: Number(quantity) || 1 }, { merge: true });
+        await updatePantry();
+        setEditingItem(null);
+        setNewItemName('');
+        setNewItemQuantity('');
+      }
+    } catch (error) {
+      console.error("Error editing item:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
+  const captureImage = () => {
+    setCapturing(true);
+    navigator.mediaDevices.getUserMedia({ video: true })
+      .then((stream) => {
+        mediaStreamRef.current = stream; // Save the stream reference
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
+      })
+      .catch((err) => console.error("Error accessing camera:", err));
+  };
+
+  const takePhoto = async () => {
+    setCapturing(false);
+    const canvas = canvasRef.current;
+    const video = videoRef.current;
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const context = canvas.getContext('2d');
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    const imageBlob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg'));
+    const imageFile = new File([imageBlob], 'photo.jpg', { type: 'image/jpeg' });
+
+    setUploading(true);
+    try {
+      const storageRef = ref(storage, `images/${Date.now()}_${imageFile.name}`);
+      await uploadBytes(storageRef, imageFile);
+      const downloadURL = await getDownloadURL(storageRef);
+      setImageURL(downloadURL);
+      console.log('Image available at:', downloadURL);
+    } catch (error) {
+      console.error('Error uploading image:', error);
+    } finally {
+      setUploading(false);
+      stopCamera(); // Stop the camera after capturing the photo
+    }
+  };
+
+  const uploadImage = async (event) => {
+    setUploadingImage(true);
+    const file = event.target.files[0];
+    if (file) {
+      try {
+        const storageRef = ref(storage, `images/${Date.now()}_${file.name}`);
+        await uploadBytes(storageRef, file);
+        const downloadURL = await getDownloadURL(storageRef);
+        setImageURL(downloadURL);
+        console.log('Image available at:', downloadURL);
+      } catch (error) {
+        console.error('Error uploading image:', error);
+      } finally {
+        setUploadingImage(false);
+      }
+    }
+  };
+
+  const stopCamera = () => {
+    if (mediaStreamRef.current) {
+      const tracks = mediaStreamRef.current.getTracks();
+      tracks.forEach((track) => track.stop());
+    }
+    mediaStreamRef.current = null; // Clear the reference
+    if (videoRef.current) {
+      videoRef.current.srcObject = null; // Stop video playback
+    }
+  };
+  
+  const handleCancel = () => {
+    stopCamera(); // Stop the camera
+    setCapturing(false); // Hide the camera interface
+  };
+  
+
   const handleSignOut = async () => {
-    await signOut(auth);
-    router.push('/');
+    try {
+      await signOut(auth);
+      router.push('/login');
+    } catch (error) {
+      console.error("Error signing out:", error);
+    }
   };
 
   const handleMenuOpen = (event) => {
@@ -210,6 +318,14 @@ const Page = () => {
 
   const handleMenuClose = () => {
     setAnchorEl(null);
+  };
+
+  const handleAddOrEditItem = () => {
+    if (editingItem) {
+      editItem(editingItem.id, newItemName, newItemQuantity);
+    } else {
+      addItem(newItemName, newItemQuantity, imageURL);
+    }
   };
 
   return (
@@ -248,33 +364,86 @@ const Page = () => {
             variant="h4"
             gutterBottom
             sx={{
-            textAlign: 'center',       // Centers the text
-            fontWeight: 'bold',        // Makes the text bold
-            fontFamily: 'Raleway, cursive', // Apply a fancy font family
+            textAlign: 'center',
+            fontWeight: 'bold',
+            fontFamily: 'Raleway, cursive',
             }}
         >
             Inventory List
         </Typography>
-        <Box display="flex" justifyContent="space-between" mb={2}>
+        <Box display="flex" flexDirection="column" alignItems="center" mb={2}>
           <TextField
             label="Item Name"
             value={newItemName}
             onChange={(e) => setNewItemName(e.target.value)}
-            sx={{ marginRight: 2 }}
+            sx={{ marginBottom: 2 }}
           />
           <TextField
             label="Quantity"
             type="number"
             value={newItemQuantity}
             onChange={(e) => setNewItemQuantity(e.target.value)}
-            sx={{ marginRight: 2 }}
+            sx={{ marginBottom: 2 }}
           />
-          <Button variant="contained" onClick={() => (editingItem ? editItem(editingItem.id, newItemName, newItemQuantity) : addItem(newItemName, newItemQuantity))}>
-            {editingItem ? 'Edit Item' : 'Add Item'}
-          </Button>
+          <Box display="flex" gap={2}>
+            <Button
+              variant="contained"
+              onClick={captureImage}
+              disabled={loading || uploading || capturing || uploadingImage}
+              startIcon={<CameraAlt />}
+            >
+              Capture Image
+            </Button>
+            <Button
+              variant="contained"
+              onClick={() => fileInputRef.current.click()}
+              disabled={loading || uploading || capturing || uploadingImage}
+              startIcon={<FileUpload />}
+            >
+              Upload Image
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleAddOrEditItem}
+              disabled={loading || uploading || uploadingImage}
+            >
+              {editingItem ? 'Edit Item' : 'Add Item'}
+            </Button>
+          </Box>
+          <input
+            type="file"
+            accept="image/*"
+            ref={fileInputRef}
+            style={{ display: 'none' }}
+            onChange={uploadImage}
+          />
         </Box>
+
+        {capturing && (
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <video ref={videoRef} style={{ width: '100%', maxWidth: '600px', borderRadius: '8px' }}></video>
+            <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
+              <Button
+                variant="contained"
+                onClick={takePhoto}
+                sx={{ flex: 1 }}
+                disabled={uploading}
+              >
+                Take Photo
+              </Button>
+              <Button
+                variant="contained"
+                onClick={handleCancel} // Use handleCancel here
+                sx={{ flex: 1, backgroundColor: '#dc2626', '&:hover': { backgroundColor: '#b91c1c' } }}
+              >
+                Cancel
+              </Button>
+            </Box>
+            <canvas ref={canvasRef} style={{ display: 'none' }}></canvas>
+          </Box>
+        )}
         <Card sx={{ mb: 2 }}>
-          <CardHeader title="Pantry Items" />
+          <CardHeader title="Items" />
           <CardContent>
             <TableContainer sx={{ maxHeight: 350, overflowY: 'auto' }}>
               <Table stickyHeader>
@@ -282,6 +451,7 @@ const Page = () => {
                   <TableRow>
                     <TableCell>Name</TableCell>
                     <TableCell>Quantity</TableCell>
+                    <TableCell>Image</TableCell>
                     <TableCell>Actions</TableCell>
                   </TableRow>
                 </TableHead>
@@ -290,6 +460,9 @@ const Page = () => {
                     <TableRow key={item.id}>
                       <TableCell>{item.name}</TableCell>
                       <TableCell>{item.quantity}</TableCell>
+                      <TableCell>
+                        {item.imageUrl && <img src={item.imageUrl} alt={item.name} style={{ width: '100px', height: 'auto' }} />}
+                      </TableCell>
                       <TableCell>
                         <IconButton onClick={() => startEditing(item)}>
                           <Edit color="primary" />
