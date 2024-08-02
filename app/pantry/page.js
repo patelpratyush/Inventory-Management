@@ -327,7 +327,9 @@ const Page = () => {
   };
 
   // Filtered items based on search query
-  const filteredItems = pantryItems.filter(item => item.name.toLowerCase().includes(searchQuery.toLowerCase()));
+  const filteredItems = pantryItems.filter(item =>
+    item.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
 
   // Export to CSV
@@ -430,7 +432,7 @@ const Page = () => {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {pantryItems.map((item) => (
+                  {filteredItems.map((item) => (
                     <TableRow key={item.id}>
                       <TableCell>{item.name}</TableCell>
                       <TableCell>{item.quantity}</TableCell>
