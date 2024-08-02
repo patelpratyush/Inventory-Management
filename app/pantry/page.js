@@ -10,6 +10,10 @@ import withAuth from '../protectedRoute';
 import { Container, Typography, Box, Button, Card, CardHeader, CardContent, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, IconButton, TextField, createTheme, ThemeProvider, Menu, MenuItem, Snackbar, CircularProgress } from '@mui/material';
 import { AddShoppingCart, Edit, Delete, Logout, AccountCircle, CameraAlt, FileUpload } from '@mui/icons-material';
 import { styled } from '@mui/material/styles';
+import Papa from 'papaparse';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { SaveAlt, PictureAsPdf } from '@mui/icons-material'; // Import the icons
 
 const style = {
   position: 'absolute',
@@ -114,6 +118,25 @@ const Footer = styled(Box)(({ theme }) => ({
   bottom: 0,
   width: '100%',
 }));
+
+const exportToCSV = (data) => {
+  const csv = Papa.unparse(data);
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', 'inventory.csv');
+  link.click();
+};
+
+const exportToPDF = (data) => {
+  const doc = new jsPDF();
+  autoTable(doc, {
+    head: [['Name', 'Quantity', 'Image URL']],
+    body: data.map(item => [item.name, item.quantity, item.imageUrl || '']),
+  });
+  doc.save('inventory.pdf');
+};
 
 const Page = () => {
   const [pantryItems, setPantryItems] = useState([]);
@@ -306,6 +329,17 @@ const Page = () => {
   // Filtered items based on search query
   const filteredItems = pantryItems.filter(item => item.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
+
+  // Export to CSV
+  const handleExportCSV = () => {
+    exportToCSV(pantryItems);
+  };
+
+  // Export to PDF
+  const handleExportPDF = () => {
+    exportToPDF(pantryItems);
+  };
+
   return (
     <ThemeProvider theme={theme}>
       <Box>
@@ -336,7 +370,27 @@ const Page = () => {
 
         <Container maxWidth="md" sx={{ marginY: 4 }}>
           <Card>
-            <CardHeader title="Manage Your Inventory" />
+            <CardHeader
+              title="Manage Your Inventory"
+              action={
+                <Box sx={{ display: 'flex', gap: 2 }}>
+                  <IconButton
+                    color="success"
+                    onClick={handleExportCSV}
+                    aria-label="Export CSV"
+                  >
+                    <SaveAlt />
+                  </IconButton>
+                  <IconButton
+                    color="error"
+                    onClick={handleExportPDF}
+                    aria-label="Export PDF"
+                  >
+                    <PictureAsPdf />
+                  </IconButton>
+                </Box>
+              }
+            />
             <CardContent>
               <Box component="form" sx={{ display: 'flex', gap: 2, marginBottom: 2 }}>
                 <TextField
