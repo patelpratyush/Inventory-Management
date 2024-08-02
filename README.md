@@ -7,8 +7,10 @@
 - **User Authentication:** Secure sign-in and sign-out functionality.
 - **Pantry Management:** Add, edit, and delete pantry items.
 - **Image Management:** Capture images using the camera or upload images from the file system.
+- **Export Options:** Export pantry data to CSV or PDF formats.
 - **Responsive Design:** Works on both desktop and mobile devices.
 - **Real-time Updates:** Automatically updates the pantry list upon change
+- **Search Functionality:** Filter pantry items based on name or other criteria.
 
 ## Project Structure
 
