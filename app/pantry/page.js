@@ -84,7 +84,7 @@ const Header = styled(Box)(({ theme }) => ({
   padding: 10,
 }));
 
-const HeaderContent = styled(Container)(({ theme }) => ({
+const HeaderContent = styled(Box)(({ theme }) => ({
   display: 'flex',
   justifyContent: 'space-between',
   alignItems: 'center',
@@ -129,10 +129,11 @@ const Page = () => {
   const [userUid, setUserUid] = useState('');
   const [loading, setLoading] = useState(false);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState(''); // New state for search query
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
-  const mediaStreamRef = useRef(null); // Reference to the media stream
-  const fileInputRef = useRef(null); // Reference to the file input
+  const mediaStreamRef = useRef(null);
+  const fileInputRef = useRef(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -233,7 +234,7 @@ const Page = () => {
     setCapturing(true);
     navigator.mediaDevices.getUserMedia({ video: true })
       .then((stream) => {
-        mediaStreamRef.current = stream; // Save the stream reference
+        mediaStreamRef.current = stream;
         videoRef.current.srcObject = stream;
         videoRef.current.play();
       })
@@ -259,49 +260,39 @@ const Page = () => {
       await uploadBytes(storageRef, imageFile);
       const downloadURL = await getDownloadURL(storageRef);
       setImageURL(downloadURL);
-      console.log('Image available at:', downloadURL);
     } catch (error) {
-      console.error('Error uploading image:', error);
+      console.error("Error uploading image:", error);
     } finally {
       setUploading(false);
-      stopCamera(); // Stop the camera after capturing the photo
+      mediaStreamRef.current.getTracks().forEach(track => track.stop());
     }
   };
 
-  const uploadImage = async (event) => {
-    setUploadingImage(true);
+  const handleFileChange = (event) => {
     const file = event.target.files[0];
     if (file) {
-      try {
-        const storageRef = ref(storage, `images/${Date.now()}_${file.name}`);
-        await uploadBytes(storageRef, file);
-        const downloadURL = await getDownloadURL(storageRef);
-        setImageURL(downloadURL);
-        console.log('Image available at:', downloadURL);
-      } catch (error) {
-        console.error('Error uploading image:', error);
-      } finally {
-        setUploadingImage(false);
-      }
+      setUploadingImage(true);
+      const storageRef = ref(storage, `images/${Date.now()}_${file.name}`);
+      uploadBytes(storageRef, file)
+        .then(() => getDownloadURL(storageRef))
+        .then((url) => {
+          setImageURL(url);
+          setUploadingImage(false);
+        })
+        .catch((error) => {
+          console.error("Error uploading file:", error);
+          setUploadingImage(false);
+        });
     }
   };
 
-  const stopCamera = () => {
-    if (mediaStreamRef.current) {
-      const tracks = mediaStreamRef.current.getTracks();
-      tracks.forEach((track) => track.stop());
-    }
-    mediaStreamRef.current = null; // Clear the reference
-    if (videoRef.current) {
-      videoRef.current.srcObject = null; // Stop video playback
-    }
+  const handleMenu = (event) => {
+    setAnchorEl(event.currentTarget);
   };
-  
-  const handleCancel = () => {
-    stopCamera(); // Stop the camera
-    setCapturing(false); // Hide the camera interface
+
+  const handleClose = () => {
+    setAnchorEl(null);
   };
-  
 
   const handleSignOut = async () => {
     try {
@@ -312,141 +303,70 @@ const Page = () => {
     }
   };
 
-  const handleMenuOpen = (event) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleMenuClose = () => {
-    setAnchorEl(null);
-  };
-
-  const handleAddOrEditItem = () => {
-    if (editingItem) {
-      editItem(editingItem.id, newItemName, newItemQuantity);
-    } else {
-      addItem(newItemName, newItemQuantity, imageURL);
-    }
-  };
+  // Filtered items based on search query
+  const filteredItems = pantryItems.filter(item => item.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
   return (
     <ThemeProvider theme={theme}>
+      <Box>
       <Header>
-        <HeaderContent maxWidth="2000">
-          <a href="/" style={{ display: 'flex', alignItems: 'center', color: 'inherit', textDecoration: 'none' }}>
-            <AddShoppingCart fontSize="medium" />
-            <HeaderText variant="h6" component="span">Inventory Buddy</HeaderText>
-          </a>
-          <IconButton
-            onClick={handleMenuOpen}
-            sx={{ marginLeft: 'auto' }}
-            color="inherit"
-          >
-            <AccountCircle fontSize="large" />
-          </IconButton>
-          <Menu
-            anchorEl={anchorEl}
-            open={Boolean(anchorEl)}
-            onClose={handleMenuClose}
-          >
-            <MenuItem>
-              <Typography variant="body2">{userEmail}</Typography>
-            </MenuItem>
-            <MenuItem onClick={handleSignOut}>
-              <Logout fontSize="small" />
-              <Typography variant="body2">Logout</Typography>
-            </MenuItem>
-          </Menu>
+        <HeaderContent>
+          <HeaderText variant="h6">Welcome to Your Inventory</HeaderText>
+          <Box display="flex" alignItems="center">
+            <IconButton color="inherit" onClick={handleMenu}>
+              <AccountCircle />
+            </IconButton>
+            <Menu
+              anchorEl={anchorEl}
+              keepMounted
+              open={Boolean(anchorEl)}
+              onClose={handleClose}
+            >
+              <MenuItem>
+                <Typography variant="body2">{userEmail}</Typography>
+              </MenuItem>
+              <MenuItem onClick={handleSignOut}>
+                <Logout fontSize="small" />
+                <Typography variant="body2">Logout</Typography>
+              </MenuItem>
+            </Menu>
+          </Box>
         </HeaderContent>
       </Header>
 
-      <Container maxWidth="md" sx={{ py: 4 }}>
-        <Typography
-            variant="h4"
-            gutterBottom
-            sx={{
-            textAlign: 'center',
-            fontWeight: 'bold',
-            fontFamily: 'Raleway, cursive',
-            }}
-        >
-            Inventory List
-        </Typography>
-        <Box display="flex" flexDirection="column" alignItems="center" mb={2}>
-          <TextField
-            label="Item Name"
-            value={newItemName}
-            onChange={(e) => setNewItemName(e.target.value)}
-            sx={{ marginBottom: 2 }}
-          />
-          <TextField
-            label="Quantity"
-            type="number"
-            value={newItemQuantity}
-            onChange={(e) => setNewItemQuantity(e.target.value)}
-            sx={{ marginBottom: 2 }}
-          />
-          <Box display="flex" gap={2}>
-            <Button
-              variant="contained"
-              onClick={captureImage}
-              disabled={loading || uploading || capturing || uploadingImage}
-              startIcon={<CameraAlt />}
-            >
-              Capture Image
-            </Button>
-            <Button
-              variant="contained"
-              onClick={() => fileInputRef.current.click()}
-              disabled={loading || uploading || capturing || uploadingImage}
-              startIcon={<FileUpload />}
-            >
-              Upload Image
-            </Button>
-            <Button
-              variant="contained"
-              onClick={handleAddOrEditItem}
-              disabled={loading || uploading || uploadingImage}
-            >
-              {editingItem ? 'Edit Item' : 'Add Item'}
-            </Button>
-          </Box>
-          <input
-            type="file"
-            accept="image/*"
-            ref={fileInputRef}
-            style={{ display: 'none' }}
-            onChange={uploadImage}
-          />
-        </Box>
+        <Container maxWidth="md" sx={{ marginY: 4 }}>
+          <Card>
+            <CardHeader title="Manage Your Inventory" />
+            <CardContent>
+              <Box component="form" sx={{ display: 'flex', gap: 2, marginBottom: 2 }}>
+                <TextField
+                  label="Item Name"
+                  value={newItemName}
+                  onChange={(e) => setNewItemName(e.target.value)}
+                  fullWidth
+                />
+                <TextField
+                  label="Quantity"
+                  value={newItemQuantity}
+                  onChange={(e) => setNewItemQuantity(e.target.value)}
+                  type="number"
+                  fullWidth
+                />
+                <Button variant="contained" color="primary" onClick={() => addItem(newItemName, newItemQuantity, imageURL)}>
+                  {loading ? <CircularProgress size={24} color="inherit" /> : 'Add Item'}
+                </Button>
+              </Box>
 
-        {capturing && (
-          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <video ref={videoRef} style={{ width: '100%', maxWidth: '600px', borderRadius: '8px' }}></video>
-            <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
-              <Button
-                variant="contained"
-                onClick={takePhoto}
-                sx={{ flex: 1 }}
-                disabled={uploading}
-              >
-                Take Photo
-              </Button>
-              <Button
-                variant="contained"
-                onClick={handleCancel} // Use handleCancel here
-                sx={{ flex: 1, backgroundColor: '#dc2626', '&:hover': { backgroundColor: '#b91c1c' } }}
-              >
-                Cancel
-              </Button>
-            </Box>
-            <canvas ref={canvasRef} style={{ display: 'none' }}></canvas>
-          </Box>
-        )}
-        <Card sx={{ mb: 2 }}>
-          <CardHeader title="Items" />
-          <CardContent>
-            <TableContainer sx={{ maxHeight: 350, overflowY: 'auto' }}>
-              <Table stickyHeader>
+              <TextField
+                label="Search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                fullWidth
+                sx={{ marginBottom: 2 }}
+              />
+
+              <TableContainer>
+                <Table>
                 <TableHead>
                   <TableRow>
                     <TableCell>Name</TableCell>
@@ -475,19 +395,59 @@ const Page = () => {
                   ))}
                 </TableBody>
               </Table>
-            </TableContainer>
-          </CardContent>
-        </Card>
-      </Container>
-      
-      {loading && <CircularProgress />}
-      
-      <Snackbar
-        open={snackbarOpen}
-        autoHideDuration={3000}
-        onClose={() => setSnackbarOpen(false)}
-        message="Action completed"
-      />
+              </TableContainer>
+            </CardContent>
+          </Card>
+
+          <Box sx={{ display: 'flex', justifyContent: 'center', marginTop: 4 }}>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={() => fileInputRef.current.click()}
+              startIcon={<FileUpload />}
+            >
+              Upload Image
+            </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              style={{ display: 'none' }}
+              onChange={handleFileChange}
+            />
+            <Button
+              variant="contained"
+              color="secondary"
+              onClick={captureImage}
+              startIcon={<CameraAlt />}
+              sx={{ marginLeft: 2 }}
+            >
+              Capture Image
+            </Button>
+          </Box>
+
+          {capturing && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', marginTop: 2 }}>
+              <video ref={videoRef} width="320" height="240" />
+              <Button variant="contained" color="primary" onClick={takePhoto}>
+                Take Photo
+              </Button>
+            </Box>
+          )}
+
+          <canvas ref={canvasRef} style={{ display: 'none' }} />
+        </Container>
+
+        <Footer>
+          <Typography variant="body2">&copy; {new Date().getFullYear()} Inventory Buddy. All rights reserved.</Typography>
+        </Footer>
+
+        <Snackbar
+          open={snackbarOpen}
+          onClose={() => setSnackbarOpen(false)}
+          message="Item added successfully"
+          autoHideDuration={3000}
+        />
+      </Box>
     </ThemeProvider>
   );
 };
